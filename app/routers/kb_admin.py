@@ -529,6 +529,16 @@ async def create_kb(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"创建失败: {e}")
 
+    # === 关键: 用模板专属 schema/purpose overwrite nashsu Rust 端写的通用版 ===
+    # (按 nashsu 真实: Rust 端先写老通用, 前端 dialog.tsx:68-69 用模板 overwrite)
+    # 我们后端一步到位: create_project_dir 写通用 → 然后这里 overwrite 模板专属
+    schema_overwrite = target_path / 'schema.md'
+    if schema_overwrite.exists() and template_data['schema_md']:
+        schema_overwrite.write_text(template_data['schema_md'], encoding='utf-8')
+    purpose_overwrite = target_path / 'purpose.md'
+    if purpose_overwrite.exists() and template_data['purpose_md']:
+        purpose_overwrite.write_text(template_data['purpose_md'], encoding='utf-8')
+
     output_lang_file = target_path / '.output_language'
     output_lang_file.write_text(body.language, encoding='utf-8')
 
