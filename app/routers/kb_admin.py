@@ -86,9 +86,9 @@ TEMPLATE_SCHEMAS = {
 
 | Type | Directory | Purpose |
 |------|-----------|---------|
-| entity | wiki/entities/ | Named things (people tools organizations datasets) |
-| concept | wiki/concepts/ | Ideas techniques phenomena frameworks |
-| source | wiki/sources/ | Papers articles talks books blog posts |
+| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
+| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
+| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
 | query | wiki/queries/ | Open questions under active investigation |
 | comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
 | synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
@@ -96,11 +96,15 @@ TEMPLATE_SCHEMAS = {
 
 ## Naming Conventions
 
-- Files: kebab-case.md
-- Entities: match official name where possible
-- Sources: author-year-slug.md
+- Files: `kebab-case.md`
+- Entities: match official name where possible (e.g., `openai.md`, `gpt-4.md`)
+- Concepts: descriptive noun phrases (e.g., `chain-of-thought.md`)
+- Sources: `author-year-slug.md` (e.g., `wei-2022-cot.md`)
+- Queries: question as slug (e.g., `does-scale-improve-reasoning.md`)
 
 ## Frontmatter
+
+All pages must include YAML frontmatter:
 
 ```yaml
 ---
@@ -112,187 +116,519 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 ```
+
+Source pages also include:
+```yaml
+authors: []
+year: YYYY
+url: ""
+venue: ""
+```
+
+## Index Format
+
+`wiki/index.md` lists all pages grouped by type. Each entry:
+```
+- [[page-slug]] — one-line description
+```
+
+## Log Format
+
+`wiki/log.md` records activity in reverse chronological order:
+```
+## YYYY-MM-DD
+
+- Action taken / finding noted
+```
+
+## Cross-referencing Rules
+
+- Use `[[page-slug]]` syntax to link between wiki pages
+- Every entity and concept should appear in `wiki/index.md`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via `related:`
+
+## Contradiction Handling
+
+When sources contradict each other:
+1. Note the contradiction in the relevant concept or entity page
+2. Create or update a query page to track the open question
+3. Link both sources from the query page
+4. Resolve in a synthesis page once sufficient evidence exists
 """,
     "research": """# Wiki Schema — Research Deep-Dive
 
-## Page Types (基础 7 个 + 3 个 research 专属)
+## Page Types
 
 | Type | Directory | Purpose |
 |------|-----------|---------|
-| entity | wiki/entities/ | Named things |
-| concept | wiki/concepts/ | Ideas techniques |
-| source | wiki/sources/ | Papers articles |
-| query | wiki/queries/ | Open questions |
-| comparison | wiki/comparisons/ | Side-by-side analysis |
-| synthesis | wiki/synthesis/ | Cross-cutting summaries |
-| overview | wiki/ | High-level project summary |
-| thesis | wiki/thesis/ | Working hypothesis and its evolution |
-| methodology | wiki/methodology/ | Research methods protocols and study designs |
+| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
+| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
+| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
+| query | wiki/queries/ | Open questions under active investigation |
+| comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
+| synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
+| overview | wiki/ | High-level project summary (one per project) |
+| thesis | wiki/thesis/ | Working hypothesis and its evolution over time |
+| methodology | wiki/methodology/ | Research methods, protocols, and study designs |
 | finding | wiki/findings/ | Individual empirical results or observations |
+
+## Naming Conventions
+
+- Files: `kebab-case.md`
+- Entities: match official name where possible (e.g., `openai.md`, `gpt-4.md`)
+- Concepts: descriptive noun phrases (e.g., `chain-of-thought.md`)
+- Sources: `author-year-slug.md` (e.g., `wei-2022-cot.md`)
+- Queries: question as slug (e.g., `does-scale-improve-reasoning.md`)
+- Theses: hypothesis as slug (e.g., `scaling-improves-reasoning.md`)
+- Methodologies: method name (e.g., `systematic-review.md`, `ablation-study.md`)
+- Findings: descriptive slug (e.g., `larger-models-better-few-shot.md`)
 
 ## Frontmatter
 
-Thesis pages include:
+All pages must include YAML frontmatter:
+
+```yaml
+---
+type: entity | concept | source | query | comparison | synthesis | overview
+title: Human-readable title
+tags: []
+related: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+Thesis pages also include:
 ```yaml
 confidence: low | medium | high
 status: speculative | supported | refuted | settled
 ```
 
-Finding pages include:
+Finding pages also include:
 ```yaml
-source: source-slug
+source: "[[source-slug]]"
 confidence: low | medium | high
 replicated: true | false | null
 ```
+
+## Index Format
+
+`wiki/index.md` lists all pages grouped by type. Each entry:
+```
+- [[page-slug]] — one-line description
+```
+
+## Log Format
+
+`wiki/log.md` records activity in reverse chronological order:
+```
+## YYYY-MM-DD
+
+- Action taken / finding noted
+```
+
+## Cross-referencing Rules
+
+- Use `[[page-slug]]` syntax to link between wiki pages
+- Every entity and concept should appear in `wiki/index.md`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via `related:`
+- Findings link back to their source via the `source:` frontmatter field
+- Thesis pages reference supporting and refuting findings via `related:`
+- Methodology pages are cited by the findings that used them
+
+## Contradiction Handling
+
+When sources contradict each other:
+1. Note the contradiction in the relevant concept or entity page
+2. Create or update a query page to track the open question
+3. Link both sources from the query page
+4. Resolve in a synthesis page once sufficient evidence exists
+
+## Research-Specific Conventions
+
+- Keep the thesis pages updated as evidence accumulates — they are living documents
+- Every finding should assess replication status when known
+- Methodology pages explain the *why* (rationale) not just the *how*
+- Distinguish between direct evidence and inference in finding pages
 """,
     "reading": """# Wiki Schema — Reading a Book
 
-## Page Types (基础 7 个 + 4 个 reading 专属)
+## Page Types
 
 | Type | Directory | Purpose |
 |------|-----------|---------|
-| entity | wiki/entities/ | Named things |
-| concept | wiki/concepts/ | Ideas |
-| source | wiki/sources/ | Source summaries |
-| query | wiki/queries/ | Open questions |
-| comparison | wiki/comparisons/ | Side-by-side analysis |
-| synthesis | wiki/synthesis/ | Summaries |
-| overview | wiki/ | High-level project summary |
+| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
+| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
+| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
+| query | wiki/queries/ | Open questions under active investigation |
+| comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
+| synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
+| overview | wiki/ | High-level project summary (one per project) |
 | character | wiki/characters/ | People and figures in the book |
-| theme | wiki/themes/ | Recurring ideas motifs and symbolic threads |
-| plot-thread | wiki/plot-threads/ | Storylines or narrative arcs |
+| theme | wiki/themes/ | Recurring ideas, motifs, and symbolic threads |
+| plot-thread | wiki/plot-threads/ | Storylines or narrative arcs being tracked |
 | chapter | wiki/chapters/ | Per-chapter notes and summaries |
+
+## Naming Conventions
+
+- Files: `kebab-case.md`
+- Entities: match official name where possible (e.g., `openai.md`, `gpt-4.md`)
+- Concepts: descriptive noun phrases (e.g., `chain-of-thought.md`)
+- Sources: `author-year-slug.md` (e.g., `wei-2022-cot.md`)
+- Queries: question as slug (e.g., `does-scale-improve-reasoning.md`)
+- Characters: character name in kebab-case (e.g., `elizabeth-bennet.md`)
+- Themes: thematic noun phrase (e.g., `social-class-mobility.md`, `deception-vs-honesty.md`)
+- Plot threads: arc description (e.g., `darcys-redemption-arc.md`)
+- Chapters: `ch-NN-slug.md` (e.g., `ch-01-opening-scene.md`)
 
 ## Frontmatter
 
-Character pages include:
+All pages must include YAML frontmatter:
+
 ```yaml
-first_appearance: Ch. N
+---
+type: entity | concept | source | query | comparison | synthesis | overview
+title: Human-readable title
+tags: []
+related: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+Character pages also include:
+```yaml
+first_appearance: "Ch. N"
 role: protagonist | antagonist | supporting | minor
 ```
 
-Chapter pages include:
+Chapter pages also include:
 ```yaml
 chapter: N
-pages: 1-24
+pages: "1-24"
 ```
+
+## Index Format
+
+`wiki/index.md` lists all pages grouped by type. Each entry:
+```
+- [[page-slug]] — one-line description
+```
+
+## Log Format
+
+`wiki/log.md` records activity in reverse chronological order:
+```
+## YYYY-MM-DD
+
+- Action taken / finding noted
+```
+
+## Cross-referencing Rules
+
+- Use `[[page-slug]]` syntax to link between wiki pages
+- Every entity and concept should appear in `wiki/index.md`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via `related:`
+- Chapter notes reference characters appearing in that chapter via `related:`
+- Theme pages link to the chapters where the theme is most prominent
+- Plot thread pages list chapters that advance the arc
+
+## Contradiction Handling
+
+When sources contradict each other:
+1. Note the contradiction in the relevant concept or entity page
+2. Create or update a query page to track the open question
+3. Link both sources from the query page
+4. Resolve in a synthesis page once sufficient evidence exists
+
+## Reading-Specific Conventions
+
+- Chapter pages are written during or immediately after reading — capture fresh reactions
+- Distinguish between plot summary and personal interpretation in chapter notes
+- Theme pages should track *development* across the book, not just state that a theme exists
+- Flag unresolved plot threads with status: `open` until resolved
+- Note page numbers for important quotes to enable re-finding later
 """,
     "personal": """# Wiki Schema — Personal Growth
 
-## Page Types (基础 7 个 + 4 个 personal 专属)
+## Page Types
 
 | Type | Directory | Purpose |
 |------|-----------|---------|
-| entity | wiki/entities/ | Named things |
-| concept | wiki/concepts/ | Ideas |
-| source | wiki/sources/ | Sources |
-| query | wiki/queries/ | Open questions |
-| comparison | wiki/comparisons/ | Side-by-side analysis |
-| synthesis | wiki/synthesis/ | Summaries |
-| overview | wiki/ | High-level project summary |
-| goal | wiki/goals/ | Specific outcomes |
-| habit | wiki/habits/ | Recurring behaviours and tracking |
-| reflection | wiki/reflections/ | Periodic reviews and lessons |
-| journal | wiki/journal/ | Freeform daily/session entries |
+| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
+| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
+| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
+| query | wiki/queries/ | Open questions under active investigation |
+| comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
+| synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
+| overview | wiki/ | High-level project summary (one per project) |
+| goal | wiki/goals/ | Specific outcomes you are working toward |
+| habit | wiki/habits/ | Recurring behaviours and their tracking |
+| reflection | wiki/reflections/ | Periodic reviews and lessons learned |
+| journal | wiki/journal/ | Freeform daily or session entries |
+
+## Naming Conventions
+
+- Files: `kebab-case.md`
+- Entities: match official name where possible (e.g., `openai.md`, `gpt-4.md`)
+- Concepts: descriptive noun phrases (e.g., `chain-of-thought.md`)
+- Sources: `author-year-slug.md` (e.g., `wei-2022-cot.md`)
+- Queries: question as slug (e.g., `does-scale-improve-reasoning.md`)
+- Goals: outcome as slug (e.g., `run-a-marathon.md`, `learn-spanish.md`)
+- Habits: behaviour name (e.g., `daily-meditation.md`, `morning-pages.md`)
+- Reflections: type + date (e.g., `weekly-2024-03.md`, `quarterly-2024-q1.md`)
+- Journal: date slug (e.g., `2024-03-15.md`)
 
 ## Frontmatter
 
-Goal pages include:
+All pages must include YAML frontmatter:
+
+```yaml
+---
+type: entity | concept | source | query | comparison | synthesis | overview
+title: Human-readable title
+tags: []
+related: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+Goal pages also include:
 ```yaml
 target_date: YYYY-MM-DD
 status: active | paused | achieved | abandoned
 progress: 0-100
 ```
 
-Habit pages include:
+Habit pages also include:
 ```yaml
 frequency: daily | weekly | monthly
 streak: N
 status: active | paused | dropped
 ```
+
+Reflection pages also include:
+```yaml
+period: weekly | monthly | quarterly | annual
+```
+
+## Index Format
+
+`wiki/index.md` lists all pages grouped by type. Each entry:
+```
+- [[page-slug]] — one-line description
+```
+
+## Log Format
+
+`wiki/log.md` records activity in reverse chronological order:
+```
+## YYYY-MM-DD
+
+- Action taken / finding noted
+```
+
+## Cross-referencing Rules
+
+- Use `[[page-slug]]` syntax to link between wiki pages
+- Every entity and concept should appear in `wiki/index.md`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via `related:`
+- Reflection pages reference the goals and habits reviewed during that period
+- Goals link to the habits that support them via `related:`
+- Journal entries can reference goals and reflections inline with `[[slug]]`
+
+## Contradiction Handling
+
+When sources contradict each other:
+1. Note the contradiction in the relevant concept or entity page
+2. Create or update a query page to track the open question
+3. Link both sources from the query page
+4. Resolve in a synthesis page once sufficient evidence exists
+
+## Personal Growth Conventions
+
+- Be honest in journal and reflection entries — this wiki is for you, not an audience
+- Update goal progress fields regularly; stale data is worse than no data
+- Distinguish between outcome goals (what you want) and process goals (what you will do)
+- Reflect on *why* habits succeed or fail, not just whether they did
+- Use the synthesis directory for cross-cutting insights that span multiple goals or periods
 """,
     "business": """# Wiki Schema — Business / Team
 
-## Page Types (基础 7 个 + 4 个 business 专属)
+## Page Types
 
 | Type | Directory | Purpose |
 |------|-----------|---------|
-| entity | wiki/entities/ | People teams organizations |
-| concept | wiki/concepts/ | Ideas methods |
-| source | wiki/sources/ | Documents |
-| query | wiki/queries/ | Open questions |
-| comparison | wiki/comparisons/ | Side-by-side analysis |
-| synthesis | wiki/synthesis/ | Summaries |
-| overview | wiki/ | High-level project summary |
-| meeting | wiki/meetings/ | Meeting notes agendas action items |
-| decision | wiki/decisions/ | ADR-style decisions |
-| project | wiki/projects/ | Project briefs status retrospectives |
-| stakeholder | wiki/stakeholders/ | People teams organizations involved |
+| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
+| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
+| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
+| query | wiki/queries/ | Open questions under active investigation |
+| comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
+| synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
+| overview | wiki/ | High-level project summary (one per project) |
+| meeting | wiki/meetings/ | Meeting notes, agendas, and action items |
+| decision | wiki/decisions/ | Architectural or strategic decisions (ADR-style) |
+| project | wiki/projects/ | Project briefs, status, and retrospectives |
+| stakeholder | wiki/stakeholders/ | People, teams, and organisations involved |
+
+## Naming Conventions
+
+- Files: `kebab-case.md`
+- Entities: match official name where possible (e.g., `openai.md`, `gpt-4.md`)
+- Concepts: descriptive noun phrases (e.g., `chain-of-thought.md`)
+- Sources: `author-year-slug.md` (e.g., `wei-2022-cot.md`)
+- Queries: question as slug (e.g., `does-scale-improve-reasoning.md`)
+- Meetings: `YYYY-MM-DD-slug.md` (e.g., `2024-03-15-sprint-planning.md`)
+- Decisions: `NNN-slug.md` (e.g., `001-adopt-typescript.md`)
+- Projects: descriptive slug (e.g., `payments-redesign.md`)
+- Stakeholders: name or team in kebab-case (e.g., `alice-chen.md`, `platform-team.md`)
 
 ## Frontmatter
 
-Meeting pages include:
+All pages must include YAML frontmatter:
+
+```yaml
+---
+type: entity | concept | source | query | comparison | synthesis | overview
+title: Human-readable title
+tags: []
+related: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+Meeting pages also include:
 ```yaml
 date: YYYY-MM-DD
 attendees: []
 action_items: []
 ```
 
-Decision pages include:
+Decision pages also include:
 ```yaml
 status: proposed | accepted | deprecated | superseded
 deciders: []
 date: YYYY-MM-DD
-supersedes: ""
+supersedes: ""   # slug of ADR this replaces, if any
 ```
 
-Project pages include:
+Project pages also include:
 ```yaml
 status: planned | active | on-hold | complete | cancelled
 owner: ""
 start_date: YYYY-MM-DD
 target_date: YYYY-MM-DD
 ```
+
+## Index Format
+
+`wiki/index.md` lists all pages grouped by type. Each entry:
+```
+- [[page-slug]] — one-line description
+```
+
+## Log Format
+
+`wiki/log.md` records activity in reverse chronological order:
+```
+## YYYY-MM-DD
+
+- Action taken / finding noted
+```
+
+## Cross-referencing Rules
+
+- Use `[[page-slug]]` syntax to link between wiki pages
+- Every entity and concept should appear in `wiki/index.md`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via `related:`
+- Meeting notes reference attendees via `attendees:` frontmatter and `[[stakeholder-slug]]` links
+- Decision pages link to the meetings where the decision was discussed
+- Project pages link to their key decisions via `related:`
+- Stakeholder pages list projects and decisions they are involved in
+
+## Contradiction Handling
+
+When sources contradict each other:
+1. Note the contradiction in the relevant concept or entity page
+2. Create or update a query page to track the open question
+3. Link both sources from the query page
+4. Resolve in a synthesis page once sufficient evidence exists
+
+## Business-Specific Conventions
+
+- Write meeting notes during or within 24 hours — memory fades fast
+- Action items must have a named owner and due date to be actionable
+- Decision pages capture *context and consequences*, not just the decision itself
+- Deprecated decisions should link to the decision that superseded them
+- Projects should have a retrospective section added on completion
 """,
 }
-
 
 TEMPLATE_PURPOSES = {
     "general": """# Project Purpose
 
 ## Goal
+
 <!-- What are you trying to understand or build? -->
 
 ## Key Questions
+
+<!-- List the primary questions driving this project -->
+
 1.
 2.
 3.
 
 ## Scope
+
 **In scope:**
 -
 
 **Out of scope:**
 -
+
+## Thesis
+
+<!-- Your current working hypothesis or conclusion (update as the project progresses) -->
+
+> TBD
 """,
     "research": """# Project Purpose — Research Deep-Dive
 
 ## Research Question
-<!-- Central question this research aims to answer. Be specific and falsifiable. -->
+
+<!-- State the central question this research aims to answer. Be specific and falsifiable. -->
+
+>
 
 ## Hypothesis / Working Thesis
-<!-- Your current best guess. This will evolve — update as evidence accumulates. -->
+
+<!-- Your current best guess. This will evolve — update it as evidence accumulates. -->
+
+>
 
 ## Background
-<!-- What prior work or context motivates this research? -->
+
+<!-- What prior work or context motivates this research? What gap does it fill? -->
 
 ## Sub-questions
+
+<!-- Break down the main question into tractable sub-questions. -->
+
 1.
 2.
 3.
 4.
 
 ## Scope
+
 **In scope:**
 -
 
@@ -300,94 +636,175 @@ TEMPLATE_PURPOSES = {
 -
 
 ## Methodology
-<!-- How will you investigate this? -->
+
+<!-- How will you investigate this? What types of sources or experiments are relevant? -->
+
+-
 
 ## Success Criteria
+
 <!-- How will you know when you have a satisfying answer? -->
+
+-
+
+## Current Status
+
+> Not started — update this section as research progresses.
 """,
     "reading": """# Project Purpose — Reading
 
 ## Book Details
+
 **Title:**
 **Author:**
 **Year:**
 **Genre:**
 
-## Why I am Reading This
+## Why I'm Reading This
+
 <!-- What drew you to this book? What do you hope to get from it? -->
 
 ## Key Themes to Track
+
+<!-- What thematic threads do you expect or want to follow? -->
+
 1.
 2.
 3.
 
 ## Questions Going In
+
+<!-- What do you want answered or explored by the end? -->
+
 1.
 2.
 
 ## Reading Pace
+
 **Started:**
 **Target finish:**
 **Current chapter:**
+
+## First Impressions
+
+<!-- Update after first chapter or first sitting. -->
+
+>
+
+## Final Takeaways
+
+<!-- Fill in when finished. What did this book teach you? -->
+
+>
 """,
     "personal": """# Project Purpose — Personal Growth
 
 ## Focus Areas
+
 <!-- What areas of your life or self are you actively working on? -->
+
 1.
 2.
 3.
 
 ## Motivation
+
 <!-- Why now? What prompted you to start this wiki? -->
 
 ## Current Goals (Summary)
+
+<!-- High-level list — create detailed goal pages in wiki/goals/ -->
+
 - [ ]
 - [ ]
 - [ ]
 
 ## Active Habits
+
+<!-- High-level list — create detailed habit pages in wiki/habits/ -->
+
+-
 -
 
 ## Review Cadence
+
 **Daily journal:** Yes / No
 **Weekly reflection:**
 **Monthly reflection:**
 **Quarterly reflection:**
+
+## Guiding Principles
+
+<!-- What values or principles guide your growth work? -->
+
+1.
+2.
+3.
+
+## This Year's Theme
+
+<!-- One phrase or sentence that captures your intention for the year. -->
+
+>
 """,
     "business": """# Project Purpose — Business / Team
 
 ## Business Context
+
 **Organisation / Team:**
 **Domain:**
 **Time period covered:**
 
 ## Objectives
+
+<!-- What are the top-level business objectives this wiki supports? -->
+
 1.
 2.
 3.
 
 ## Key Projects
+
+<!-- High-level list — create detailed pages in wiki/projects/ -->
+
+-
 -
 
 ## Key Stakeholders
+
+<!-- Who are the primary people or teams involved? -->
+
+-
 -
 
 ## Open Decisions
+
+<!-- Decisions currently in flight — create ADR pages in wiki/decisions/ -->
+
+-
 -
 
 ## Metrics / Success Criteria
+
+<!-- How does the team measure progress toward its objectives? -->
+
 -
 
 ## Constraints and Risks
+
+<!-- Known constraints (budget, time, org) and risks to track -->
+
 -
 
 ## Review Cadence
+
 **Weekly sync notes:**
 **Monthly status update:**
 **Quarterly retrospective:**
 """,
 }
+
+
 
 
 # ============ Pydantic models ============
