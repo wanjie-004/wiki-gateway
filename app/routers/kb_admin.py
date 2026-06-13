@@ -745,3 +745,286 @@ TEMPLATE_PURPOSES = {
 }
 
 
+# ============ Pydantic models ============
+
+class TemplateInfo(BaseModel):
+    """5 模板之一 (i18n 用 name)"""
+    id: str
+    name: str
+    name_en: str
+    description: str
+    description_en: str
+    icon: str
+    extra_dirs: list[str]
+
+
+class TemplateListResponse(BaseModel):
+    templates: list[TemplateInfo]
+
+
+class KBCreateRequest(BaseModel):
+    """POST /api/admin/kb/create 请求体"""
+    kb_name: str = Field(min_length=1, max_length=100, description="知识库名")
+    template_id: str = Field(description="5 模板 id 之一: general/research/reading/personal/business")
+    language: str = Field(default="zh", description="AI 输出语言 (zh/en/...)")
+    base_path: Optional[str] = Field(default=None, description="可选: 自定义存储路径, 缺省用 settings.wiki_root_user_base")
+
+
+class KBCreateResponse(BaseModel):
+    ok: bool
+    project_id: str
+    kb_name: str
+    template_id: str
+    absolute_path: str
+    username: str
+    language: str
+    schema_written: bool
+    purpose_written: bool
+    extra_dirs_created: list[str]
+
+
+class KBSummary(BaseModel):
+    """GET /api/admin/kb/list 单元"""
+    id: str
+    name: str
+    path: str
+    current: bool = False
+
+
+class KBListResponse(BaseModel):
+    ok: bool
+    count: int
+    projects: list[KBSummary]
+
+
+class KBDeleteResponse(BaseModel):
+    ok: bool
+    deleted_app_state: bool
+    deleted_dir: bool
+    project_path: Optional[str] = None
+
+
+# ============ Helper ============
+
+def _derive_project_id(username: str, kb_name: str) -> str:
+    """派生 nashsu 风格的 UUID (跟 nashsu 端读到的 id 兼容)
+
+    注: 这只是兜底, create_project_dir 内部用 uuid5 派生**真**UUID
+    """
+    raw = f"{username}:{kb_name}".encode('utf-8')
+    return hashlib.sha256(raw).hexdigest()[:36]
+
+
+# ============ 端点 1: GET /api/admin/kb/templates ============
+
+@router.get("/templates", response_model=TemplateListResponse)
+async def list_templates(
+    user: dict = Depends(get_current_user),
+):
+    """列 5 模板 (公开端点, 任何登录用户可看)"""
+    items = [
+        TemplateInfo(
+            id=t["id"],
+            name=t["name"],
+            name_en=t["name_en"],
+            description=t["description"],
+            description_en=t["description_en"],
+            icon=t["icon"],
+            extra_dirs=t["extra_dirs"],
+        )
+        for t in TEMPLATES.values()
+    ]
+    return TemplateListResponse(templates=items)
+
+
+# ============ 端点 2: POST /api/admin/kb/create ============
+
+@router.post("/create", response_model=KBCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_kb(
+    body: KBCreateRequest,
+    user: dict = Depends(get_current_user),
+):
+    """创建知识库 (按 username/kb-name 路径)
+
+    路径: <settings.wiki_root_user_base>[/<username>]/<kb_name>/
+    nashsu 19828 端实时读文件系统, 自动出现新项目
+    """
+    username = user["username"]
+    kb_name = body.kb_name.strip()
+    template_id = body.template_id.strip().lower()
+
+    if template_id not in TEMPLATES:
+        raise HTTPException(status_code=400, detail=f"未知模板: {template_id}. 可用: {list(TEMPLATES.keys())}")
+
+    from ..nashsu_client import resolve_kb_path, sanitize_path_segment
+    try:
+        target_path = resolve_kb_path(username, kb_name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"路径非法: {e}")
+
+    if body.base_path:
+        target_path = Path(body.base_path) / sanitize_path_segment(kb_name)
+
+    if target_path.exists():
+        raise HTTPException(
+            status_code=409,
+            detail=f"目录已存在: {target_path}. 请改名 kb_name 或删旧目录",
+        )
+
+    template_data = {
+        "schema_md": TEMPLATE_SCHEMAS[template_id],
+        "purpose_md": TEMPLATE_PURPOSES[template_id],
+        "extra_dirs": TEMPLATES[template_id]["extra_dirs"],
+    }
+    try:
+        result = await nc_create_project_dir(kb_name, template_data, username)
+    except FileExistsError:
+        raise HTTPException(status_code=409, detail=f"路径冲突: {target_path}")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=f"权限不足: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建失败: {e}")
+
+    # === 关键: 用模板专属 schema/purpose overwrite nashsu Rust 端写的通用版 ===
+    # (按 nashsu 真实: Rust 端先写老通用, 前端 dialog.tsx:68-69 用模板 overwrite)
+    # 我们后端一步到位: create_project_dir 写通用 → 然后这里 overwrite 模板专属
+    schema_overwrite = target_path / 'schema.md'
+    if schema_overwrite.exists() and template_data['schema_md']:
+        schema_overwrite.write_text(template_data['schema_md'], encoding='utf-8')
+    purpose_overwrite = target_path / 'purpose.md'
+    if purpose_overwrite.exists() and template_data['purpose_md']:
+        purpose_overwrite.write_text(template_data['purpose_md'], encoding='utf-8')
+
+    output_lang_file = target_path / '.output_language'
+    output_lang_file.write_text(body.language, encoding='utf-8')
+
+    # 用后端同步注册的 project_id (从 create_project_dir 返), 替代前端派生的 hash
+    final_project_id = result.get('project_id') or _derive_project_id(username, kb_name)
+    registered = result.get('registered', False)
+
+    return KBCreateResponse(
+        ok=True,
+        project_id=final_project_id,
+        kb_name=kb_name,
+        template_id=template_id,
+        absolute_path=result['path'],
+        username=username,
+        language=body.language,
+        schema_written=result['schema_written'],
+        purpose_written=result['purpose_written'],
+        extra_dirs_created=result['extra_dirs_created'],
+    )
+
+
+# ============ 端点 3: GET /api/admin/kb/list ============
+
+@router.get("/list", response_model=KBListResponse)
+async def list_kb(
+    user: dict = Depends(get_current_user),
+    nashsu: NashsuClient = Depends(get_nashsu_client),
+):
+    """列所有知识库 (代理 nashsu 19828 /projects)"""
+    try:
+        data = await nashsu.list_projects()
+    except NashsuAPIError as e:
+        raise HTTPException(status_code=502, detail=f"nashsu API 错误: {e.message}")
+
+    raw_projects = data.get("projects", [])
+    current = data.get("currentProject", {})
+    current_id = current.get("id", "")
+
+    items = [
+        KBSummary(
+            id=p.get("id", ""),
+            name=p.get("name", ""),
+            path=p.get("path", ""),
+            current=(p.get("id", "") == current_id),
+        )
+        for p in raw_projects
+    ]
+    return KBListResponse(ok=True, count=len(items), projects=items)
+
+
+# ============ 端点 4: GET /api/admin/kb/{project_id} ============
+
+@router.get("/{project_id}", response_model=KBSummary)
+async def get_kb(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    nashsu: NashsuClient = Depends(get_nashsu_client),
+):
+    """单个知识库详情 (从 nashsu /projects 列表找)"""
+    try:
+        data = await nashsu.list_projects()
+    except NashsuAPIError as e:
+        raise HTTPException(status_code=502, detail=f"nashsu API 错误: {e.message}")
+
+    raw_projects = data.get("projects", [])
+    current = data.get("currentProject", {})
+    current_id = current.get("id", "")
+
+    for p in raw_projects:
+        if p.get("id") == project_id:
+            return KBSummary(
+                id=p.get("id", ""),
+                name=p.get("name", ""),
+                path=p.get("path", ""),
+                current=(p.get("id", "") == current_id),
+            )
+    raise HTTPException(status_code=404, detail=f"项目不存在: {project_id}")
+
+
+# ============ 端点 5: DELETE /api/admin/kb/{project_id} ============
+
+@router.delete("/{project_id}", response_model=KBDeleteResponse)
+async def delete_kb(
+    project_id: str,
+    user: dict = Depends(get_current_user),
+    nashsu: NashsuClient = Depends(get_nashsu_client),
+):
+    """删知识库 (按 05-app-state.md §4 Python 代码: 改 app-state.json 4 处 + 删目录)
+
+    不用调 19828 DELETE (nashsu 没暴露), 改 app-state.json + 文件系统
+    普通用户: 只能删自己 username 下的 (按 username/kb-name 路径规则检查)
+    admin: 可删任何
+    """
+    is_admin = user.get("role") == "admin"
+
+    try:
+        data = await nashsu.list_projects()
+    except NashsuAPIError as e:
+        raise HTTPException(status_code=502, detail=f"nashsu API 错误: {e.message}")
+
+    project_path = None
+    for p in data.get("projects", []):
+        if p.get("id") == project_id:
+            project_path = p.get("path", "")
+            break
+
+    if not project_path:
+        raise HTTPException(status_code=404, detail=f"项目不存在: {project_id}")
+
+    # 普通用户: 路径必须含 username 根 (防越权)
+    if not is_admin:
+        from ..nashsu_client import sanitize_path_segment
+        username = user["username"]
+        safe_user = sanitize_path_segment(username)
+        if f"/{safe_user}/" not in project_path and f"/{safe_user}" != project_path.rstrip("/"):
+            raise HTTPException(
+                status_code=403,
+                detail=f"权限不足: 项目不在你的根目录下",
+            )
+
+    try:
+        result = await nc_delete_project_state(project_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除失败: {e}")
+
+    return KBDeleteResponse(
+        ok=True,
+        deleted_app_state=result.get("deleted_app_state", False),
+        deleted_dir=result.get("deleted_dir", False),
+        project_path=result.get("project_path"),
+    )
+
+
