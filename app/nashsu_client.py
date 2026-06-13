@@ -301,6 +301,24 @@ async def create_project_dir(
     (target / 'raw' / 'sources' / '.gitkeep').touch()
     created.append('raw/sources')
 
+    # 建 wiki/ 顶层 + 3 个占位文件 (所有模板必需, nashsu 默认每个 KB 都有)
+    # 缺了 nashsu 19828 /files?root=wiki 报 "No such file or directory"
+    (target / 'wiki').mkdir(exist_ok=True)
+    (target / 'wiki' / '.gitkeep').touch()
+    (target / 'wiki' / 'index.md').write_text(
+        f"# {kb_name} — Index\n\n<!-- nashsu 会自动填充 wiki 页面列表 -->\n",
+        encoding='utf-8',
+    )
+    (target / 'wiki' / 'log.md').write_text(
+        f"# {kb_name} — Log\n\n## {time.strftime('%Y-%m-%d')}\n\n- 知识库创建\n",
+        encoding='utf-8',
+    )
+    (target / 'wiki' / 'overview.md').write_text(
+        f"# {kb_name} — Overview\n\n<!-- 项目概览, 由 LLM ingest 时自动生成 -->\n",
+        encoding='utf-8',
+    )
+    created.append('wiki')
+
     # === 关键 2: 同步注册到 nashsu app-state.json ===
     project_id = ''
     registered = False
