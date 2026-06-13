@@ -532,9 +532,13 @@ async def create_kb(
     output_lang_file = target_path / '.output_language'
     output_lang_file.write_text(body.language, encoding='utf-8')
 
+    # 用后端同步注册的 project_id (从 create_project_dir 返), 替代前端派生的 hash
+    final_project_id = result.get('project_id') or _derive_project_id(username, kb_name)
+    registered = result.get('registered', False)
+
     return KBCreateResponse(
         ok=True,
-        project_id=project_id,
+        project_id=final_project_id,
         kb_name=kb_name,
         template_id=template_id,
         absolute_path=result['path'],

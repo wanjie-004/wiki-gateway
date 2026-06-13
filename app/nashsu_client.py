@@ -1,5 +1,8 @@
 """nashsu 19828 API 客户端（httpx 异步）"""
 import httpx
+import sys
+import json  # 2026-06-13 加: create_project_dir 注册 app-state.json 用
+import time  # 2026-06-13 加: 注册时 now_ms 用
 from typing import Optional, Any
 from .config import settings
 
@@ -264,10 +267,18 @@ async def create_project_dir(
     template: dict,  # {schema_md, purpose_md, extra_dirs: [str]}
     username: str,
 ) -> dict:
-    """创建知识库目录 + 写 schema.md + purpose.md + 建 extra_dirs
+    """创建知识库目录 + 写 schema.md + purpose.md + 建 extraDirs + 建 raw/sources/ + 注册 app-state.json
 
     路径: settings.wiki_root_user_base[/<username>]/<kb_name>/
-    返回: {path: str, schema_written: bool, purpose_written: bool, extra_dirs_created: [str]}
+    返回: {path: str, project_id: str, schema_written: bool, purpose_written: bool,
+           extra_dirs_created: [str], registered: bool}
+
+    关键 (2026-06-13 修): 必须建 raw/sources/ 目录, 否则 nashsu 19828 读 raw/sources 报
+    "No such file or directory (os error 2)" (来源: 测试 test-wanjie004-kb 浏览源文件报错)
+
+    关键 (2026-06-13 修 2): 必须同步注册到 nashsu app-state.json 的 projectRegistry,
+    否则 nashsu 19828 /projects 列表看不到新项目 (nashsu 启动时一次性加载 projectRegistry,
+    改 app-state.json 后 19828 实时读, 不用重启) (来源: 同上测试)
     """
     from .config import settings
     target = resolve_kb_path(username, kb_name)
@@ -277,15 +288,70 @@ async def create_project_dir(
     (target / 'schema.md').write_text(template['schema_md'], encoding='utf-8')
     (target / 'purpose.md').write_text(template['purpose_md'], encoding='utf-8')
 
-    # 建 extra_dirs
+    # 建 extra_dirs (模板专属 wiki 子目录, 如 business 的 meetings/decisions/...)
     created = []
     for d in template.get('extra_dirs', []):
         sub = target / d
         sub.mkdir(parents=True, exist_ok=True)
         created.append(d)
 
+    # 建 raw/sources/ (nashsu 19828 Source Watch 监听这个目录, 必需)
+    (target / 'raw').mkdir(exist_ok=True)
+    (target / 'raw' / 'sources').mkdir(exist_ok=True)
+    (target / 'raw' / 'sources' / '.gitkeep').touch()
+    created.append('raw/sources')
+
+    # === 关键 2: 同步注册到 nashsu app-state.json ===
+    project_id = ''
+    registered = False
+    state_path = Path.home() / '.local' / 'share' / 'com.llmwiki.app' / 'app-state.json'
+    if state_path.exists():
+        try:
+            with open(state_path, 'r', encoding='utf-8') as f:
+                state = json.load(f)
+            registry = state.setdefault('projectRegistry', {})
+            # 派生 project_id: 跟现有 'mvp-test-NNN' 风格保持一致
+            # 找最大 NNN + 1 (避免冲突)
+            max_n = 0
+            for k in registry.keys():
+                if k.startswith('mvp-test-'):
+                    try:
+                        n = int(k.split('-')[-1])
+                        max_n = max(max_n, n)
+                    except (ValueError, IndexError):
+                        pass
+            project_id = f'mvp-test-{max_n + 1:03d}'
+
+            # 注册
+            now_ms = int(time.time() * 1000)
+            registry[project_id] = {
+                'name': kb_name,
+                'path': str(target),
+                'lastOpened': now_ms,
+                'createdAt': now_ms,
+            }
+
+            # 加到 recentProjects (去重)
+            recent = state.setdefault('recentProjects', [])
+            recent = [r for r in recent if r.get('id') != project_id]
+            recent.insert(0, {'id': project_id, 'name': kb_name, 'path': str(target)})
+            state['recentProjects'] = recent
+
+            # 设 lastProject (新项目切为当前)
+            state['lastProject'] = {'id': project_id, 'name': kb_name, 'path': str(target)}
+
+            # 写回
+            with open(state_path, 'w', encoding='utf-8') as f:
+                json.dump(state, f, indent=2, ensure_ascii=False)
+            registered = True
+        except Exception as e:
+            # 不让注册失败阻塞创建 (降级)
+            registered = False
+
     return {
         'path': str(target),
+        'project_id': project_id,
+        'registered': registered,
         'schema_written': True,
         'purpose_written': True,
         'extra_dirs_created': created,
