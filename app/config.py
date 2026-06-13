@@ -12,6 +12,15 @@ class Settings(BaseSettings):
     # nashsu wiki 根目录（用于归档写文件）
     nashsu_wiki_root: str = "/tmp/wiki-mvp"
 
+    # === 知识库路径规则 (新增, 2026-06-13) ===
+    # 模式 A (默认, 兼容老项目): 单一存储根, 跟用户名无关
+    #   实际路径: <wiki_root_user_base>/<kb-name>/
+    # 模式 B (新推荐, 多用户隔离): 用户独立根
+    #   实际路径: <wiki_root_user_base>/<username>/<kb-name>/
+    # C 决策 (按用户): 加配置项并存, 老项目走 A, 新建项目走 B
+    wiki_root_per_user: bool = False
+    wiki_root_user_base: str = "/mnt/d/wsl"
+
     # JWT
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"

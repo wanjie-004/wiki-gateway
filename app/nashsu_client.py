@@ -219,3 +219,284 @@ def get_nashsu_client() -> NashsuClient:
     if _default_client is None:
         _default_client = NashsuClient()
     return _default_client
+
+
+# ============ 阶段 1 新增: 知识库管理 (kb_admin) ============
+
+import os
+import shutil
+import re
+import hashlib
+from pathlib import Path
+from typing import Optional
+
+
+def sanitize_path_segment(segment: str) -> str:
+    """清理路径段, 跟 nashsu `sanitizePathSegment` 类似, 防路径穿越"""
+    # 禁所有危险字符
+    value = re.sub(r'[<>:"\\|?*\x00-\x1f]', '_', segment)
+    # 去末尾 . 和空格 (Windows)
+    value = re.sub(r'[. ]+$', '', value).strip()
+    if not value:
+        value = '_'
+    return value
+
+
+def resolve_kb_path(username: str, kb_name: str) -> Path:
+    """根据 username + kb_name 派生完整路径
+
+    模式 A (settings.wiki_root_per_user=False): wiki_root_user_base/<kb_name>/
+    模式 B (settings.wiki_root_per_user=True):  wiki_root_user_base/<username>/<kb_name>/
+    """
+    from .config import settings
+    kb_name_safe = sanitize_path_segment(kb_name)
+    if settings.wiki_root_per_user:
+        # B: 用户独立根
+        base = Path(settings.wiki_root_user_base) / sanitize_path_segment(username) / kb_name_safe
+    else:
+        # A: 单一根
+        base = Path(settings.wiki_root_user_base) / kb_name_safe
+    return base
+
+
+async def create_project_dir(
+    kb_name: str,
+    template: dict,  # {schema_md, purpose_md, extra_dirs: [str]}
+    username: str,
+) -> dict:
+    """创建知识库目录 + 写 schema.md + purpose.md + 建 extra_dirs
+
+    路径: settings.wiki_root_user_base[/<username>]/<kb_name>/
+    返回: {path: str, schema_written: bool, purpose_written: bool, extra_dirs_created: [str]}
+    """
+    from .config import settings
+    target = resolve_kb_path(username, kb_name)
+    target.mkdir(parents=True, exist_ok=False)  # 冲突 → FileExistsError
+
+    # 写 schema.md + purpose.md
+    (target / 'schema.md').write_text(template['schema_md'], encoding='utf-8')
+    (target / 'purpose.md').write_text(template['purpose_md'], encoding='utf-8')
+
+    # 建 extra_dirs
+    created = []
+    for d in template.get('extra_dirs', []):
+        sub = target / d
+        sub.mkdir(parents=True, exist_ok=True)
+        created.append(d)
+
+    return {
+        'path': str(target),
+        'schema_written': True,
+        'purpose_written': True,
+        'extra_dirs_created': created,
+    }
+
+
+async def delete_project_state(project_id: str) -> dict:
+    """删知识库 (按 05-app-state.md §4 Python 代码: 改 app-state.json 4 处 + 删目录)
+
+    不用调 19828 (nashsu 没暴露 DELETE API), 直接改 19828 端 store + 文件系统
+    """
+    from .config import settings
+    # 找 app-state.json 路径
+    candidates = [
+        Path.home() / '.local' / 'share' / 'com.llmwiki.app' / 'app-state.json',
+        Path.home() / '.config' / 'com.llmwiki.app' / 'app-state.json',
+        Path.home() / 'Library' / 'Application Support' / 'com.llmwiki.app' / 'app-state.json',
+    ]
+    app_state_path = None
+    for p in candidates:
+        if p.exists():
+            app_state_path = p
+            break
+
+    if not app_state_path:
+        return {'deleted_app_state': False, 'reason': 'app-state.json not found'}
+
+    import json
+    with open(app_state_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    # 找 project path (从 projectRegistry)
+    project_path = None
+    if 'projectRegistry' in data and project_id in data['projectRegistry']:
+        project_path = data['projectRegistry'][project_id].get('path')
+
+    # 删 4 处
+    if 'projectRegistry' in data and project_id in data['projectRegistry']:
+        del data['projectRegistry'][project_id]
+    if 'projectOutputLanguages' in data and project_id in data['projectOutputLanguages']:
+        del data['projectOutputLanguages'][project_id]
+    if 'sourceWatchConfig' in data and project_id in data['sourceWatchConfig']:
+        del data['sourceWatchConfig'][project_id]
+    if 'recentProjects' in data:
+        data['recentProjects'] = [p for p in data['recentProjects'] if p.get('id') != project_id]
+
+    # 删 scheduledImportConfig (key 含 path)
+    if project_path:
+        sched_key = f'scheduledImportConfig:{project_path}'
+        if sched_key in data:
+            del data[sched_key]
+
+    # lastProject 兜底
+    if data.get('lastProject', {}).get('id') == project_id:
+        fallback = data['recentProjects'][0] if data['recentProjects'] else None
+        if fallback:
+            data['lastProject'] = {'id': fallback['id'], 'name': fallback['name'], 'path': fallback['path']}
+
+    # 写回
+    with open(app_state_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+    # 删目录
+    dir_deleted = False
+    if project_path:
+        p = Path(project_path)
+        if p.exists():
+            shutil.rmtree(p)
+            dir_deleted = True
+
+    return {
+        'deleted_app_state': True,
+        'deleted_dir': dir_deleted,
+        'project_path': project_path,
+    }
+
+
+async def upload_source_file(project_id: str, file_path: str, content: bytes) -> dict:
+    """上传源文件到 <project>/raw/sources/<file_path>
+
+    file_path 相对于 raw/sources/, 例: "AI/foo.md"
+    nashsu Source Watch 自动检测并 ingest
+    """
+    from .config import settings
+    # 找项目路径
+    candidates = [
+        Path.home() / '.local' / 'share' / 'com.llmwiki.app' / 'app-state.json',
+    ]
+    project_path = None
+    for p in candidates:
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as f:
+                import json as _json
+                d = _json.load(f)
+            if d.get('projectRegistry', {}).get(project_id, {}).get('path'):
+                project_path = Path(d['projectRegistry'][project_id]['path'])
+            break
+
+    if not project_path:
+        return {'uploaded': False, 'reason': 'project not found'}
+
+    # 路径安全
+    safe_rel = file_path
+    for bad in ['..', '~']:
+        if bad in safe_rel:
+            return {'uploaded': False, 'reason': f'illegal path: {bad}'}
+
+    target = project_path / 'raw' / 'sources' / safe_rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
+
+    return {
+        'uploaded': True,
+        'path': str(target),
+        'size': len(content),
+    }
+
+
+async def delete_source_file(project_id: str, file_path: str) -> dict:
+    """删源文件 <project>/raw/sources/<file_path>
+
+    nashsu Source Watch 检测到删除自动 cleanup wiki 页
+    """
+    candidates = [
+        Path.home() / '.local' / 'share' / 'com.llmwiki.app' / 'app-state.json',
+    ]
+    project_path = None
+    for p in candidates:
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as f:
+                import json as _json
+                d = _json.load(f)
+            if d.get('projectRegistry', {}).get(project_id, {}).get('path'):
+                project_path = Path(d['projectRegistry'][project_id]['path'])
+            break
+
+    if not project_path:
+        return {'deleted': False, 'reason': 'project not found'}
+
+    target = project_path / 'raw' / 'sources' / file_path
+    if not target.exists():
+        return {'deleted': False, 'reason': 'file not found'}
+
+    target.unlink()
+    return {'deleted': True, 'path': str(target)}
+
+
+async def get_ingest_status(project_id: str) -> dict:
+    """查 ingest 状态 (读 .llm-wiki/file-change-queue.json + wiki/log.md 最新)
+
+    不用调 19828 (nashsu 没暴露 file-change-queue 端点), 直接读文件系统
+    """
+    candidates = [
+        Path.home() / '.local' / 'share' / 'com.llmwiki.app' / 'app-state.json',
+    ]
+    project_path = None
+    for p in candidates:
+        if p.exists():
+            with open(p, 'r', encoding='utf-8') as f:
+                import json as _json
+                d = _json.load(f)
+            if d.get('projectRegistry', {}).get(project_id, {}).get('path'):
+                project_path = Path(d['projectRegistry'][project_id]['path'])
+            break
+
+    if not project_path:
+        return {'status': 'unknown', 'reason': 'project not found'}
+
+    queue_file = project_path / '.llm-wiki' / 'file-change-queue.json'
+    snapshot_file = project_path / '.llm-wiki' / 'file-snapshot.json'
+    log_file = project_path / 'wiki' / 'log.md'
+
+    status = {
+        'pending': 0,
+        'processing': 0,
+        'done': 0,
+        'failed': 0,
+        'queue_size': 0,
+        'last_log': None,
+    }
+
+    if queue_file.exists():
+        try:
+            with open(queue_file, 'r', encoding='utf-8') as f:
+                queue = json.load(f)
+            tasks = queue.get('tasks', [])
+            status['queue_size'] = len(tasks)
+            for t in tasks:
+                s = t.get('status', 'pending')
+                if s in status:
+                    status[s] += 1
+        except Exception as e:
+            status['queue_error'] = str(e)
+
+    if log_file.exists():
+        try:
+            lines = log_file.read_text(encoding='utf-8').split('\n')
+            for line in lines:
+                if 'ingest' in line.lower():
+                    status['last_log'] = line.strip()
+                    break
+        except Exception:
+            pass
+
+    return status
+
+
+async def ingest_file(project_id: str, file_path: str) -> dict:
+    """强制 ingest 单文件 (调 rescan 触发全队列, nashsu 没暴露单文件 ingest)
+
+    文档: 09-source-watch-flow.md §10.1 路径 A (手动 UI 按钮) — 走 rescan
+    """
+    return await trigger_rescan(project_id)
+

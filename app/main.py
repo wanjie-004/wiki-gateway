@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from .config import settings
 from . import db
 from .routers import auth, wiki, graph, archive, chat, nashsu_config, projects
+from .routers import kb_admin  # 阶段 1 新增: 知识库 CRUD
 from .nashsu_client import NashsuClient
 
 
@@ -75,6 +76,7 @@ app.include_router(archive.router)
 app.include_router(chat.router)
 app.include_router(nashsu_config.router)
 app.include_router(projects.router)
+app.include_router(kb_admin.router)  # 阶段 1 新增: 知识库 CRUD (4 端点)
 
 
 @app.get("/")
