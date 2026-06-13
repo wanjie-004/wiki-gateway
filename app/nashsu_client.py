@@ -267,11 +267,14 @@ async def create_project_dir(
     template: dict,  # {schema_md, purpose_md, extra_dirs: [str]}
     username: str,
 ) -> dict:
-    """创建知识库目录 + 写 schema.md + purpose.md + 建 extraDirs + 建 raw/sources/ + 注册 app-state.json
+    """创建知识库目录 + 写 schema.md + purpose.md + 6 wiki 子目录 + raw/{sources,assets} + .obsidian/3 文件
+
+    **按 nashsu 真实 Rust 端 create_project_impl (src-tauri/src/commands/project.rs:16-242)**
+    参考: https://github.com/nashsu/llm_wiki/blob/main/src-tauri/src/commands/project.rs
 
     路径: settings.wiki_root_user_base[/<username>]/<kb_name>/
-    返回: {path: str, project_id: str, schema_written: bool, purpose_written: bool,
-           extra_dirs_created: [str], registered: bool}
+    返回: {path: str, project_id: str, registered: bool, schema_written: bool,
+           purpose_written: bool, extra_dirs_created: [str]}
 
     关键 (2026-06-13 修): 必须建 raw/sources/ 目录, 否则 nashsu 19828 读 raw/sources 报
     "No such file or directory (os error 2)" (来源: 测试 test-wanjie004-kb 浏览源文件报错)
@@ -279,127 +282,244 @@ async def create_project_dir(
     关键 (2026-06-13 修 2): 必须同步注册到 nashsu app-state.json 的 projectRegistry,
     否则 nashsu 19828 /projects 列表看不到新项目 (nashsu 启动时一次性加载 projectRegistry,
     改 app-state.json 后 19828 实时读, 不用重启) (来源: 同上测试)
+
+    关键 (2026-06-13 修 3 — 按 nashsu 真实 Rust 端):
+    - Rust 端**写死** 7-type 通用 schema.md (没模板概念)
+    - 前端 (React dialog) 用**模板 overwrite** schema.md/purpose.md + 建 extra_dirs
+    - 但 Rust 端**先**建 8 个目录 (raw/{sources,assets} + 6 wiki) + 5 个 wiki 文件
+    - **再**建 .obsidian/3 配置文件 (Obsidian 兼容)
+    - 顺序: dirs → schema.md → purpose.md → index.md → log.md → overview.md → .obsidian
     """
     from .config import settings
     target = resolve_kb_path(username, kb_name)
     target.mkdir(parents=True, exist_ok=False)  # 冲突 → FileExistsError
 
-    # 写 schema.md + purpose.md
-    (target / 'schema.md').write_text(template['schema_md'], encoding='utf-8')
-    (target / 'purpose.md').write_text(template['purpose_md'], encoding='utf-8')
-
-    # 建 extra_dirs (模板专属 wiki 子目录, 如 business 的 meetings/decisions/...)
+    # === 步骤 1: 建 8 个目录 (按 nashsu project.rs:24-37) ===
+    # raw/sources (Source Watch 监听) + raw/assets (Obsidian attachment 目录)
+    # + 6 wiki 子目录 (对应 7 base type, overview 是顶层文件不是目录)
+    base_dirs = [
+        'raw/sources',                           # nashsu 19828 Source Watch 目标
+        'raw/assets',                            # Obsidian 附件目录 (nashsu app.json attachmentFolderPath)
+        'wiki/entities',                         # entity page type
+        'wiki/concepts',                         # concept
+        'wiki/sources',                          # source
+        'wiki/queries',                          # query
+        'wiki/comparisons',                      # comparison
+        'wiki/synthesis',                        # synthesis
+    ]
     created = []
+    for d in base_dirs:
+        sub = target / d
+        sub.mkdir(parents=True, exist_ok=True)
+        created.append(d)
+
+    # === 步骤 2: 写 schema.md (按 nashsu project.rs:42-119) — 写死 7 type 通用 ===
+    # 注: 前端 dialog 会用模板**覆盖**这文件 (dialog.tsx:68), 这里写**通用版**
+    # 7 type 含 overview (在 wiki/ 顶层, 不是子目录 — 跟 nashsu BASE_SCHEMA_TYPES 一致)
+    schema_content = """# Wiki Schema
+
+## Page Types
+
+| Type | Directory | Purpose |
+|------|-----------|---------|
+| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
+| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
+| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
+| query | wiki/queries/ | Open questions under active investigation |
+| comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
+| synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
+| overview | wiki/ | High-level project summary (one per project) |
+
+## Naming Conventions
+
+- Files: `kebab-case.md`
+- Entities: match official name where possible (e.g., `gpt-4.md`, `openai.md`)
+- Concepts: descriptive noun phrases (e.g., `chain-of-thought.md`)
+- Sources: `author-year-slug.md` (e.g., `wei-2022-chain-of-thought.md`)
+- Queries: question as slug (e.g., `does-scale-improve-reasoning.md`)
+
+## Frontmatter
+
+All pages must include YAML frontmatter:
+
+```yaml
+---
+type: entity | concept | source | query | comparison | synthesis | overview
+title: Human-readable title
+tags: []
+related: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+Source pages also include:
+```yaml
+authors: []
+year: YYYY
+url: ""
+venue: ""
+```
+
+## Index Format
+
+`wiki/index.md` lists all pages grouped by type. Each entry:
+```
+- [[page-slug]] — one-line description
+```
+
+## Log Format
+
+`wiki/log.md` records research activity in reverse chronological order:
+```
+## YYYY-MM-DD
+
+- Action taken / finding noted
+```
+
+## Cross-referencing Rules
+
+- Use `[[page-slug]]` syntax to link between wiki pages
+- Every entity and concept should appear in `wiki/index.md`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via `related:`
+
+## Contradiction Handling
+
+When sources contradict each other:
+1. Note the contradiction in the relevant concept or entity page
+2. Create or update a query page to track the open question
+3. Link both sources from the query page
+4. Resolve in a synthesis page once sufficient evidence exists
+"""
+    (target / 'schema.md').write_text(schema_content, encoding='utf-8')
+
+    # === 步骤 3: 写 purpose.md (按 nashsu project.rs:121-152) — 写死通用 ===
+    purpose_content = """# Project Purpose
+
+## Goal
+
+<!-- What are you trying to understand or build? -->
+
+## Key Questions
+
+<!-- List the primary questions driving this research -->
+
+1.
+2.
+3.
+
+## Scope
+
+<!-- What is in scope? What is explicitly out of scope? -->
+
+**In scope:**
+-
+
+**Out of scope:**
+-
+
+## Thesis
+
+<!-- Your current working hypothesis or conclusion (update as research progresses) -->
+
+> TBD
+"""
+    (target / 'purpose.md').write_text(purpose_content, encoding='utf-8')
+
+    today = time.strftime('%Y-%m-%d')
+
+    # === 步骤 4: 写 wiki/index.md (按 nashsu project.rs:154-169) — 无 frontmatter ===
+    # ⚠️ nashsu 实际**没** frontmatter, 6 H2 节 (无 ## Overviews 单独节)
+    index_content = """# Wiki Index
+
+## Entities
+
+## Concepts
+
+## Sources
+
+## Queries
+
+## Comparisons
+
+## Synthesis
+"""
+    (target / 'wiki').mkdir(exist_ok=True)
+    (target / 'wiki' / 'index.md').write_text(index_content, encoding='utf-8')
+
+    # === 步骤 5: 写 wiki/log.md (按 nashsu project.rs:171-180) — 无 frontmatter ===
+    # ⚠️ nashsu 实际**没** frontmatter, `# Research Log` (不是 `# <kb_name> — Log`)
+    log_content = f"""# Research Log
+
+## {today}
+
+- Project created
+"""
+    (target / 'wiki' / 'log.md').write_text(log_content, encoding='utf-8')
+
+    # === 步骤 6: 写 wiki/overview.md (按 nashsu project.rs:182-194) — 有 frontmatter ===
+    # ⚠️ nashsu 实际**只**有 type/title/tags/related 4 字段 (没 sources/created/updated)
+    overview_content = """---
+type: overview
+title: Project Overview
+tags: []
+related: []
+---
+
+# Overview
+
+<!-- Provide a high-level summary of what this wiki covers and its current state. Update regularly as understanding deepens. -->
+"""
+    (target / 'wiki' / 'overview.md').write_text(overview_content, encoding='utf-8')
+
+    # === 步骤 7: 建 .obsidian/ + 3 配置文件 (按 nashsu project.rs:196-235) — Obsidian 兼容 ===
+    (target / '.obsidian').mkdir(exist_ok=True)
+
+    # app.json: attachmentFolderPath + userIgnoreFilters + useMarkdownLinks
+    obsidian_app_config = """{
+  "attachmentFolderPath": "raw/assets",
+  "userIgnoreFilters": [
+    ".cache",
+    ".llm-wiki",
+    ".superpowers"
+  ],
+  "useMarkdownLinks": false,
+  "newLinkFormat": "shortest",
+  "showUnsupportedFiles": false
+}"""
+    (target / '.obsidian' / 'app.json').write_text(obsidian_app_config, encoding='utf-8')
+
+    # appearance.json: dark mode + baseFontSize
+    obsidian_appearance = """{
+  "baseFontSize": 16,
+  "theme": "obsidian"
+}"""
+    (target / '.obsidian' / 'appearance.json').write_text(obsidian_appearance, encoding='utf-8')
+
+    # core-plugins.json: 启用 graph + backlinks 等
+    obsidian_core_plugins = """{
+  "file-explorer": true,
+  "global-search": true,
+  "graph": true,
+  "backlink": true,
+  "tag-pane": true,
+  "page-preview": true,
+  "outgoing-link": true,
+  "starred": true
+}"""
+    (target / '.obsidian' / 'core-plugins.json').write_text(obsidian_core_plugins, encoding='utf-8')
+    created.append('.obsidian')
+
+    # === 步骤 8: 模板 extra_dirs (按 nashsu dialog.tsx:70-72) ===
+    # 前端 dialog 也会调 createDirectory, 但保险起见后端也建 (避免前端失败留下半成品)
+    # ⚠️ 这是 nashsu **没有**的额外保险, 但 wiki-gateway 是 server-side, 加上更稳
     for d in template.get('extra_dirs', []):
         sub = target / d
         sub.mkdir(parents=True, exist_ok=True)
         created.append(d)
 
-    # 建 raw/sources/ (nashsu 19828 Source Watch 监听这个目录, 必需)
-    (target / 'raw').mkdir(exist_ok=True)
-    (target / 'raw' / 'sources').mkdir(exist_ok=True)
-    (target / 'raw' / 'sources' / '.gitkeep').touch()
-    created.append('raw/sources')
-
-    # 建 wiki/ 顶层 (所有模板必需, nashsu 默认每个 KB 都有)
-    # 缺了 nashsu 19828 /files?root=wiki 报 "No such file or directory"
-    #
-    # 6 个基础子目录 (对应 schema.md 6 base subdir type, **没有** overviews/):
-    #   entities/ concepts/ sources/ queries/ comparisons/ synthesis/
-    # nashsu ingest 后会自动填这些目录
-    # 模板专属 (meeting/decision/...) 由模板 extraDirs 加 (在上面, 不冲突)
-    #
-    # 参考: nashsu 实际项目 (my-test) wiki/ 结构 (6 子目录 + index.md + log.md + overview.md)
-    wiki_base_subdirs = [
-        ('entities', 'entity', 'Named things (people tools organizations datasets)'),
-        ('concepts', 'concept', 'Ideas techniques phenomena frameworks'),
-        ('sources', 'source', 'Papers articles talks books blog posts'),
-        ('queries', 'query', 'Open questions under active investigation'),
-        ('comparisons', 'comparison', 'Side-by-side analysis of related entities'),
-        ('synthesis', 'synthesis', 'Cross-cutting summaries and conclusions'),
-    ]
-    (target / 'wiki').mkdir(exist_ok=True)
-    for dirname, ptype, purpose in wiki_base_subdirs:
-        (target / 'wiki' / dirname).mkdir(exist_ok=True)
-        (target / 'wiki' / dirname / '.gitkeep').touch()
-
-    # 顶层 3 个核心文件 — 完整 nashsu 复刻 (frontmatter 含 sources, 结构按 nashsu 实测)
-    today = time.strftime('%Y-%m-%d')
-
-    # index.md: 6 H2 节 (Entities/Concepts/Sources/Queries/Comparisons/Synthesis)
-    # nashsu 实际用 `## <Type>` 大写首字母, ingest 后自动填 `[[wikilink]]` 条目
-    index_md = (
-        "---\n"
-        "type: overview\n"
-        "title: Wiki Index\n"
-        f"tags: [index, {kb_name}]\n"
-        "related: []\n"
-        "sources: []\n"
-        f"created: {today}\n"
-        f"updated: {today}\n"
-        "---\n"
-        f"# {kb_name} — Index\n\n"
-        "<!-- nashsu ingest 后会自动按 type 填 [[wikilink]] 条目 (6 大类) -->\n\n"
-        "## Entities\n\n"
-        "## Concepts\n\n"
-        "## Sources\n\n"
-        "## Queries\n\n"
-        "## Comparisons\n\n"
-        "## Synthesis\n"
-    )
-    (target / 'wiki' / 'index.md').write_text(index_md, encoding='utf-8')
-
-    # log.md: frontmatter + 多 `## YYYY-MM-DD ingest | 源名` 段占位
-    # nashsu ingest 完成后会 append 新的 ## 段, 初始只有 1 段 (创建)
-    log_md = (
-        "---\n"
-        "type: overview\n"
-        "title: Wiki Log\n"
-        "tags: [log]\n"
-        "related: []\n"
-        "sources: []\n"
-        f"created: {today}\n"
-        f"updated: {today}\n"
-        "---\n"
-        f"# {kb_name} — Log\n\n"
-        f"## {today}\n\n"
-        f"- Project created (wiki-gateway POST /api/admin/kb/create, template={template.get('id', 'general')})\n"
-        f"- 6 base subdirs created (entities/concepts/sources/queries/comparisons/synthesis)\n"
-        f"- raw/sources/ created (nashsu 19828 Source Watch target)\n\n"
-        f"## {today} ingest | (待 ingest 第一个源)\n\n"
-        f"- 摄入来源: (TBD)\n"
-        f"- 新建源页面: (TBD)\n"
-        f"- 新建概念页: (TBD)\n"
-        f"- 关键论点: (TBD)\n"
-    )
-    (target / 'wiki' / 'log.md').write_text(log_md, encoding='utf-8')
-
-    # overview.md: frontmatter + 4 H2 节 (内容范围/概念框架/实体节点/时效性标注)
-    overview_md = (
-        "---\n"
-        "type: overview\n"
-        "title: Project Overview\n"
-        f"tags: [overview, {kb_name}]\n"
-        "related: []\n"
-        "sources: []\n"
-        f"created: {today}\n"
-        f"updated: {today}\n"
-        "---\n"
-        f"# {kb_name} — Overview\n\n"
-        "<!-- 项目概览, 由 LLM ingest 时自动填充 4 大节 -->\n\n"
-        "## 内容范围\n\n"
-        "<!-- 本 Wiki 涵盖什么内容, 来源是什么, 知识边界在哪 -->\n\n"
-        "## 概念框架\n\n"
-        "<!-- 已建立的概念网络 (条款层/运营层/销售层等) -->\n\n"
-        "## 实体节点\n\n"
-        "<!-- 已建立的实体网络 (保险公司/监管机构/基本险种/附加险等) -->\n\n"
-        "## 时效性标注\n\n"
-        "<!-- 关键历史节点, 数据时点差异, 内部张力 -->\n"
-    )
-    (target / 'wiki' / 'overview.md').write_text(overview_md, encoding='utf-8')
-    created.append('wiki')
-
-    # === 关键 2: 同步注册到 nashsu app-state.json ===
+    # === 步骤 9: 同步注册到 nashsu app-state.json (按 nashsu upsertProjectInfo) ===
     project_id = ''
     registered = False
     state_path = Path.home() / '.local' / 'share' / 'com.llmwiki.app' / 'app-state.json'
@@ -408,17 +528,13 @@ async def create_project_dir(
             with open(state_path, 'r', encoding='utf-8') as f:
                 state = json.load(f)
             registry = state.setdefault('projectRegistry', {})
-            # 派生 project_id: 跟现有 'mvp-test-NNN' 风格保持一致
-            # 找最大 NNN + 1 (避免冲突)
-            max_n = 0
-            for k in registry.keys():
-                if k.startswith('mvp-test-'):
-                    try:
-                        n = int(k.split('-')[-1])
-                        max_n = max(max_n, n)
-                    except (ValueError, IndexError):
-                        pass
-            project_id = f'mvp-test-{max_n + 1:03d}'
+
+            # 派生 project_id: 按 nashsu UUID 风格 (4b7284fc-8528-44b3-8a02-7fd3cb6f36db)
+            # 用 uuid5(namespace + path) 派生稳定 UUID (跟 path 一致)
+            import uuid as _uuid
+            namespace = _uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # UUID NAMESPACE_URL
+            project_uuid = _uuid.uuid5(namespace, f'wiki-gateway/{username}/{kb_name}/{str(target)}')
+            project_id = str(project_uuid)
 
             # 注册
             now_ms = int(time.time() * 1000)
