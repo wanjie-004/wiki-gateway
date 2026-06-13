@@ -301,22 +301,102 @@ async def create_project_dir(
     (target / 'raw' / 'sources' / '.gitkeep').touch()
     created.append('raw/sources')
 
-    # 建 wiki/ 顶层 + 3 个占位文件 (所有模板必需, nashsu 默认每个 KB 都有)
+    # 建 wiki/ 顶层 (所有模板必需, nashsu 默认每个 KB 都有)
     # 缺了 nashsu 19828 /files?root=wiki 报 "No such file or directory"
+    #
+    # 6 个基础子目录 (对应 schema.md 6 base subdir type, **没有** overviews/):
+    #   entities/ concepts/ sources/ queries/ comparisons/ synthesis/
+    # nashsu ingest 后会自动填这些目录
+    # 模板专属 (meeting/decision/...) 由模板 extraDirs 加 (在上面, 不冲突)
+    #
+    # 参考: nashsu 实际项目 (my-test) wiki/ 结构 (6 子目录 + index.md + log.md + overview.md)
+    wiki_base_subdirs = [
+        ('entities', 'entity', 'Named things (people tools organizations datasets)'),
+        ('concepts', 'concept', 'Ideas techniques phenomena frameworks'),
+        ('sources', 'source', 'Papers articles talks books blog posts'),
+        ('queries', 'query', 'Open questions under active investigation'),
+        ('comparisons', 'comparison', 'Side-by-side analysis of related entities'),
+        ('synthesis', 'synthesis', 'Cross-cutting summaries and conclusions'),
+    ]
     (target / 'wiki').mkdir(exist_ok=True)
-    (target / 'wiki' / '.gitkeep').touch()
-    (target / 'wiki' / 'index.md').write_text(
-        f"# {kb_name} — Index\n\n<!-- nashsu 会自动填充 wiki 页面列表 -->\n",
-        encoding='utf-8',
+    for dirname, ptype, purpose in wiki_base_subdirs:
+        (target / 'wiki' / dirname).mkdir(exist_ok=True)
+        (target / 'wiki' / dirname / '.gitkeep').touch()
+
+    # 顶层 3 个核心文件 — 完整 nashsu 复刻 (frontmatter 含 sources, 结构按 nashsu 实测)
+    today = time.strftime('%Y-%m-%d')
+
+    # index.md: 6 H2 节 (Entities/Concepts/Sources/Queries/Comparisons/Synthesis)
+    # nashsu 实际用 `## <Type>` 大写首字母, ingest 后自动填 `[[wikilink]]` 条目
+    index_md = (
+        "---\n"
+        "type: overview\n"
+        "title: Wiki Index\n"
+        f"tags: [index, {kb_name}]\n"
+        "related: []\n"
+        "sources: []\n"
+        f"created: {today}\n"
+        f"updated: {today}\n"
+        "---\n"
+        f"# {kb_name} — Index\n\n"
+        "<!-- nashsu ingest 后会自动按 type 填 [[wikilink]] 条目 (6 大类) -->\n\n"
+        "## Entities\n\n"
+        "## Concepts\n\n"
+        "## Sources\n\n"
+        "## Queries\n\n"
+        "## Comparisons\n\n"
+        "## Synthesis\n"
     )
-    (target / 'wiki' / 'log.md').write_text(
-        f"# {kb_name} — Log\n\n## {time.strftime('%Y-%m-%d')}\n\n- 知识库创建\n",
-        encoding='utf-8',
+    (target / 'wiki' / 'index.md').write_text(index_md, encoding='utf-8')
+
+    # log.md: frontmatter + 多 `## YYYY-MM-DD ingest | 源名` 段占位
+    # nashsu ingest 完成后会 append 新的 ## 段, 初始只有 1 段 (创建)
+    log_md = (
+        "---\n"
+        "type: overview\n"
+        "title: Wiki Log\n"
+        "tags: [log]\n"
+        "related: []\n"
+        "sources: []\n"
+        f"created: {today}\n"
+        f"updated: {today}\n"
+        "---\n"
+        f"# {kb_name} — Log\n\n"
+        f"## {today}\n\n"
+        f"- Project created (wiki-gateway POST /api/admin/kb/create, template={template.get('id', 'general')})\n"
+        f"- 6 base subdirs created (entities/concepts/sources/queries/comparisons/synthesis)\n"
+        f"- raw/sources/ created (nashsu 19828 Source Watch target)\n\n"
+        f"## {today} ingest | (待 ingest 第一个源)\n\n"
+        f"- 摄入来源: (TBD)\n"
+        f"- 新建源页面: (TBD)\n"
+        f"- 新建概念页: (TBD)\n"
+        f"- 关键论点: (TBD)\n"
     )
-    (target / 'wiki' / 'overview.md').write_text(
-        f"# {kb_name} — Overview\n\n<!-- 项目概览, 由 LLM ingest 时自动生成 -->\n",
-        encoding='utf-8',
+    (target / 'wiki' / 'log.md').write_text(log_md, encoding='utf-8')
+
+    # overview.md: frontmatter + 4 H2 节 (内容范围/概念框架/实体节点/时效性标注)
+    overview_md = (
+        "---\n"
+        "type: overview\n"
+        "title: Project Overview\n"
+        f"tags: [overview, {kb_name}]\n"
+        "related: []\n"
+        "sources: []\n"
+        f"created: {today}\n"
+        f"updated: {today}\n"
+        "---\n"
+        f"# {kb_name} — Overview\n\n"
+        "<!-- 项目概览, 由 LLM ingest 时自动填充 4 大节 -->\n\n"
+        "## 内容范围\n\n"
+        "<!-- 本 Wiki 涵盖什么内容, 来源是什么, 知识边界在哪 -->\n\n"
+        "## 概念框架\n\n"
+        "<!-- 已建立的概念网络 (条款层/运营层/销售层等) -->\n\n"
+        "## 实体节点\n\n"
+        "<!-- 已建立的实体网络 (保险公司/监管机构/基本险种/附加险等) -->\n\n"
+        "## 时效性标注\n\n"
+        "<!-- 关键历史节点, 数据时点差异, 内部张力 -->\n"
     )
+    (target / 'wiki' / 'overview.md').write_text(overview_md, encoding='utf-8')
     created.append('wiki')
 
     # === 关键 2: 同步注册到 nashsu app-state.json ===
