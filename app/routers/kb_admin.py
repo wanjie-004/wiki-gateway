@@ -80,6 +80,63 @@ TEMPLATES = {
 
 
 TEMPLATE_SCHEMAS = {
+    "general": """# Wiki Schema
+
+## Page Types
+
+| Type | Directory | Purpose |
+|------|-----------|---------|
+| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
+| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
+| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
+| query | wiki/queries/ | Open questions under active investigation |
+| comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
+| synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
+| overview | wiki/ | High-level project summary (one per project) |
+
+## Naming Conventions
+
+- Files: \`kebab-case.md\
+
+## Frontmatter
+
+All pages must include YAML frontmatter:
+
+\`\`\`yaml
+---
+type: entity | concept | source | query | comparison | synthesis | overview
+title: Human-readable title
+tags: []
+related: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+\`\`\
+
+## Index Format
+
+\`wiki/index.md\` lists all pages grouped by type. Each entry:
+\`\`\
+
+## Log Format
+
+\`wiki/log.md\` records activity in reverse chronological order:
+\`\`\
+
+## Cross-referencing Rules
+
+- Use \`[[page-slug]]\` syntax to link between wiki pages
+- Every entity and concept should appear in \`wiki/index.md\
+
+## Contradiction Handling
+
+When sources contradict each other:
+1. Note the contradiction in the relevant concept or entity page
+2. Create or update a query page to track the open question
+3. Link both sources from the query page
+4. Resolve in a synthesis page once sufficient evidence exists
+""",
+
     "research": """# Wiki Schema — Research Deep-Dive
 
 ## Page Types
@@ -447,63 +504,6 @@ When sources contradict each other:
 - Decision pages capture *context and consequences*, not just the decision itself
 - Deprecated decisions should link to the decision that superseded them
 - Projects should have a retrospective section added on completion
-""",
-
-    "general": """# Wiki Schema
-
-## Page Types
-
-| Type | Directory | Purpose |
-|------|-----------|---------|
-| entity | wiki/entities/ | Named things (people, tools, organizations, datasets) |
-| concept | wiki/concepts/ | Ideas, techniques, phenomena, frameworks |
-| source | wiki/sources/ | Papers, articles, talks, books, blog posts |
-| query | wiki/queries/ | Open questions under active investigation |
-| comparison | wiki/comparisons/ | Side-by-side analysis of related entities |
-| synthesis | wiki/synthesis/ | Cross-cutting summaries and conclusions |
-| overview | wiki/ | High-level project summary (one per project) |
-
-## Naming Conventions
-
-- Files: \`kebab-case.md\
-
-## Frontmatter
-
-All pages must include YAML frontmatter:
-
-\`\`\`yaml
----
-type: entity | concept | source | query | comparison | synthesis | overview
-title: Human-readable title
-tags: []
-related: []
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
----
-\`\`\
-
-## Index Format
-
-\`wiki/index.md\` lists all pages grouped by type. Each entry:
-\`\`\
-
-## Log Format
-
-\`wiki/log.md\` records activity in reverse chronological order:
-\`\`\
-
-## Cross-referencing Rules
-
-- Use \`[[page-slug]]\` syntax to link between wiki pages
-- Every entity and concept should appear in \`wiki/index.md\
-
-## Contradiction Handling
-
-When sources contradict each other:
-1. Note the contradiction in the relevant concept or entity page
-2. Create or update a query page to track the open question
-3. Link both sources from the query page
-4. Resolve in a synthesis page once sufficient evidence exists
 """,
 }
 
