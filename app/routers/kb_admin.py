@@ -96,7 +96,11 @@ TEMPLATE_SCHEMAS = {
 
 ## Naming Conventions
 
-- Files: \`kebab-case.md\
+- Files: \`kebab-case.md\`
+- Entities: match official name where possible (e.g., \`openai.md\`, \`gpt-4.md\`)
+- Concepts: descriptive noun phrases (e.g., \`chain-of-thought.md\`)
+- Sources: \`author-year-slug.md\` (e.g., \`wei-2022-cot.md\`)
+- Queries: question as slug (e.g., \`does-scale-improve-reasoning.md\`)
 
 ## Frontmatter
 
@@ -111,22 +115,38 @@ related: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
-\`\`\
+\`\`\`
+
+Source pages also include:
+\`\`\`yaml
+authors: []
+year: YYYY
+url: ""
+venue: ""
+\`\`\`
 
 ## Index Format
 
 \`wiki/index.md\` lists all pages grouped by type. Each entry:
-\`\`\
+\`\`\`
+- [[page-slug]] — one-line description
+\`\`\`
 
 ## Log Format
 
 \`wiki/log.md\` records activity in reverse chronological order:
-\`\`\
+\`\`\`
+## YYYY-MM-DD
+
+- Action taken / finding noted
+\`\`\`
 
 ## Cross-referencing Rules
 
 - Use \`[[page-slug]]\` syntax to link between wiki pages
-- Every entity and concept should appear in \`wiki/index.md\
+- Every entity and concept should appear in \`wiki/index.md\`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via \`related:\`
 
 ## Contradiction Handling
 
@@ -156,7 +176,11 @@ When sources contradict each other:
 
 ## Naming Conventions
 
-- Files: \`kebab-case.md\
+- Files: \`kebab-case.md\`
+- Entities: match official name where possible (e.g., \`openai.md\`, \`gpt-4.md\`)
+- Concepts: descriptive noun phrases (e.g., \`chain-of-thought.md\`)
+- Sources: \`author-year-slug.md\` (e.g., \`wei-2022-cot.md\`)
+- Queries: question as slug (e.g., \`does-scale-improve-reasoning.md\`)
 - Theses: hypothesis as slug (e.g., \`scaling-improves-reasoning.md\`)
 - Methodologies: method name (e.g., \`systematic-review.md\`, \`ablation-study.md\`)
 - Findings: descriptive slug (e.g., \`larger-models-better-few-shot.md\`)
@@ -174,7 +198,15 @@ related: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
-\`\`\
+\`\`\`
+
+Source pages also include:
+\`\`\`yaml
+authors: []
+year: YYYY
+url: ""
+venue: ""
+\`\`\`
 
 Thesis pages also include:
 \`\`\`yaml
@@ -192,17 +224,25 @@ replicated: true | false | null
 ## Index Format
 
 \`wiki/index.md\` lists all pages grouped by type. Each entry:
-\`\`\
+\`\`\`
+- [[page-slug]] — one-line description
+\`\`\`
 
 ## Log Format
 
 \`wiki/log.md\` records activity in reverse chronological order:
-\`\`\
+\`\`\`
+## YYYY-MM-DD
+
+- Action taken / finding noted
+\`\`\`
 
 ## Cross-referencing Rules
 
 - Use \`[[page-slug]]\` syntax to link between wiki pages
-- Every entity and concept should appear in \`wiki/index.md\
+- Every entity and concept should appear in \`wiki/index.md\`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via \`related:\`
 - Findings link back to their source via the \`source:\` frontmatter field
 - Thesis pages reference supporting and refuting findings via \`related:\`
 - Methodology pages are cited by the findings that used them
@@ -243,7 +283,11 @@ When sources contradict each other:
 
 ## Naming Conventions
 
-- Files: \`kebab-case.md\
+- Files: \`kebab-case.md\`
+- Entities: match official name where possible (e.g., \`openai.md\`, \`gpt-4.md\`)
+- Concepts: descriptive noun phrases (e.g., \`chain-of-thought.md\`)
+- Sources: \`author-year-slug.md\` (e.g., \`wei-2022-cot.md\`)
+- Queries: question as slug (e.g., \`does-scale-improve-reasoning.md\`)
 - Characters: character name in kebab-case (e.g., \`elizabeth-bennet.md\`)
 - Themes: thematic noun phrase (e.g., \`social-class-mobility.md\`, \`deception-vs-honesty.md\`)
 - Plot threads: arc description (e.g., \`darcys-redemption-arc.md\`)
@@ -262,7 +306,15 @@ related: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
-\`\`\
+\`\`\`
+
+Source pages also include:
+\`\`\`yaml
+authors: []
+year: YYYY
+url: ""
+venue: ""
+\`\`\`
 
 Character pages also include:
 \`\`\`yaml
@@ -279,17 +331,25 @@ pages: "1-24"
 ## Index Format
 
 \`wiki/index.md\` lists all pages grouped by type. Each entry:
-\`\`\
+\`\`\`
+- [[page-slug]] — one-line description
+\`\`\`
 
 ## Log Format
 
 \`wiki/log.md\` records activity in reverse chronological order:
-\`\`\
+\`\`\`
+## YYYY-MM-DD
+
+- Action taken / finding noted
+\`\`\`
 
 ## Cross-referencing Rules
 
 - Use \`[[page-slug]]\` syntax to link between wiki pages
-- Every entity and concept should appear in \`wiki/index.md\
+- Every entity and concept should appear in \`wiki/index.md\`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via \`related:\`
 - Chapter notes reference characters appearing in that chapter via \`related:\`
 - Theme pages link to the chapters where the theme is most prominent
 - Plot thread pages list chapters that advance the arc
@@ -331,7 +391,11 @@ When sources contradict each other:
 
 ## Naming Conventions
 
-- Files: \`kebab-case.md\
+- Files: \`kebab-case.md\`
+- Entities: match official name where possible (e.g., \`openai.md\`, \`gpt-4.md\`)
+- Concepts: descriptive noun phrases (e.g., \`chain-of-thought.md\`)
+- Sources: \`author-year-slug.md\` (e.g., \`wei-2022-cot.md\`)
+- Queries: question as slug (e.g., \`does-scale-improve-reasoning.md\`)
 - Goals: outcome as slug (e.g., \`run-a-marathon.md\`, \`learn-spanish.md\`)
 - Habits: behaviour name (e.g., \`daily-meditation.md\`, \`morning-pages.md\`)
 - Reflections: type + date (e.g., \`weekly-2024-03.md\`, \`quarterly-2024-q1.md\`)
@@ -350,7 +414,15 @@ related: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
-\`\`\
+\`\`\`
+
+Source pages also include:
+\`\`\`yaml
+authors: []
+year: YYYY
+url: ""
+venue: ""
+\`\`\`
 
 Goal pages also include:
 \`\`\`yaml
@@ -374,17 +446,25 @@ period: weekly | monthly | quarterly | annual
 ## Index Format
 
 \`wiki/index.md\` lists all pages grouped by type. Each entry:
-\`\`\
+\`\`\`
+- [[page-slug]] — one-line description
+\`\`\`
 
 ## Log Format
 
 \`wiki/log.md\` records activity in reverse chronological order:
-\`\`\
+\`\`\`
+## YYYY-MM-DD
+
+- Action taken / finding noted
+\`\`\`
 
 ## Cross-referencing Rules
 
 - Use \`[[page-slug]]\` syntax to link between wiki pages
-- Every entity and concept should appear in \`wiki/index.md\
+- Every entity and concept should appear in \`wiki/index.md\`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via \`related:\`
 - Reflection pages reference the goals and habits reviewed during that period
 - Goals link to the habits that support them via \`related:\`
 - Journal entries can reference goals and reflections inline with \`[[slug]]\`
@@ -426,7 +506,11 @@ When sources contradict each other:
 
 ## Naming Conventions
 
-- Files: \`kebab-case.md\
+- Files: \`kebab-case.md\`
+- Entities: match official name where possible (e.g., \`openai.md\`, \`gpt-4.md\`)
+- Concepts: descriptive noun phrases (e.g., \`chain-of-thought.md\`)
+- Sources: \`author-year-slug.md\` (e.g., \`wei-2022-cot.md\`)
+- Queries: question as slug (e.g., \`does-scale-improve-reasoning.md\`)
 - Meetings: \`YYYY-MM-DD-slug.md\` (e.g., \`2024-03-15-sprint-planning.md\`)
 - Decisions: \`NNN-slug.md\` (e.g., \`001-adopt-typescript.md\`)
 - Projects: descriptive slug (e.g., \`payments-redesign.md\`)
@@ -445,7 +529,15 @@ related: []
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
-\`\`\
+\`\`\`
+
+Source pages also include:
+\`\`\`yaml
+authors: []
+year: YYYY
+url: ""
+venue: ""
+\`\`\`
 
 Meeting pages also include:
 \`\`\`yaml
@@ -473,17 +565,25 @@ target_date: YYYY-MM-DD
 ## Index Format
 
 \`wiki/index.md\` lists all pages grouped by type. Each entry:
-\`\`\
+\`\`\`
+- [[page-slug]] — one-line description
+\`\`\`
 
 ## Log Format
 
 \`wiki/log.md\` records activity in reverse chronological order:
-\`\`\
+\`\`\`
+## YYYY-MM-DD
+
+- Action taken / finding noted
+\`\`\`
 
 ## Cross-referencing Rules
 
 - Use \`[[page-slug]]\` syntax to link between wiki pages
-- Every entity and concept should appear in \`wiki/index.md\
+- Every entity and concept should appear in \`wiki/index.md\`
+- Queries link to the sources and concepts they draw on
+- Synthesis pages cite all contributing sources via \`related:\`
 - Meeting notes reference attendees via \`attendees:\` frontmatter and \`[[stakeholder-slug]]\` links
 - Decision pages link to the meetings where the decision was discussed
 - Project pages link to their key decisions via \`related:\`
